@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>ceph crush分布式算法</title>
+  <meta name='description' content='modern minimal theme for Jekyll'>
+
+  <link rel="canonical" href="http://localhost:4000/2021/12/07/ceph-crush%E5%88%86%E5%B8%83%E5%BC%8F%E7%AE%97%E6%B3%95/">
+  <link rel="alternate" type="application/rss+xml" title="" href="/feed.xml">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,700" rel="stylesheet">
+  <!-- Ionicons -->
+  <link href="https://unpkg.com/ionicons@4.2.2/dist/css/ionicons.min.css" rel="stylesheet">
+
+  <style>
+  
+  .text-left{text-align:left}.text-right{text-align:right}.text-center{text-align:center}.text-justify{text-align:justify}.block{display:block}.inline-block{display:inline-block}.inline{display:inline}.vertical-center{display:flex;align-items:center;justify-content:center}.show{display:block}.hide{display:none}.invisible{visibility:hidden}.float-left{float:left}.float-right{float:right}.no-padding{padding:0}.no-margin{margin:0}.list-reset{list-style-type:none;margin:0;padding:0}.clearfix::after,.clearfix ::before{content:"";display:table;clear:both}.screen-reader-text{clip:rect(1px, 1px, 1px, 1px);height:1px;overflow:hidden;position:absolute !important;width:1px;word-wrap:normal !important}/*! normalize.css v8.0.0 | MIT License | github.com/necolas/normalize.css */html{line-height:1.15;-webkit-text-size-adjust:100%}body{margin:0}h1{font-size:2em;margin:0.67em 0}hr{box-sizing:content-box;height:0;overflow:visible}pre{font-family:monospace, monospace;font-size:1em}a{background-color:transparent}abbr[title]{border-bottom:none;text-decoration:underline;text-decoration:underline dotted}b,strong{font-weight:bolder}code,kbd,samp{font-family:monospace, monospace;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-0.25em}sup{top:-0.5em}img{border-style:none}button,input,optgroup,select,textarea{font-family:inherit;font-size:100%;line-height:1.15;margin:0}button,input{overflow:visible}button,select{text-transform:none}button,[type="button"],[type="reset"],[type="submit"]{-webkit-appearance:button}button::-moz-focus-inner,[type="button"]::-moz-focus-inner,[type="reset"]::-moz-focus-inner,[type="submit"]::-moz-focus-inner{border-style:none;padding:0}button:-moz-focusring,[type="button"]:-moz-focusring,[type="reset"]:-moz-focusring,[type="submit"]:-moz-focusring{outline:1px dotted ButtonText}fieldset{padding:0.35em 0.75em 0.625em}legend{box-sizing:border-box;color:inherit;display:table;max-width:100%;padding:0;white-space:normal}progress{vertical-align:baseline}textarea{overflow:auto}[type="checkbox"],[type="radio"]{box-sizing:border-box;padding:0}[type="number"]::-webkit-inner-spin-button,[type="number"]::-webkit-outer-spin-button{height:auto}[type="search"]{-webkit-appearance:textfield;outline-offset:-2px}[type="search"]::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}details{display:block}summary{display:list-item}template{display:none}[hidden]{display:none}body,h1,h2,h3,h4,h5,h6,p,blockquote,pre,dl,dd,ol,ul,fieldset,legend,figure,hr{margin:0;padding:0}li>ul,li>ol{margin-bottom:0}table{border-collapse:collapse;border-spacing:0}h1,h2,h3,h4,h5,h6,ul,ol,dl,blockquote,p,address,hr,table,fieldset,figure,pre{margin-bottom:20px}ul,ol,dd{margin-left:20px}.highlight{background:#f8f8f8}.highlighter-rouge .highlight{background:#eef}.highlight .c{color:#998;font-style:italic}.highlight .err{color:#a61717;background-color:#e3d2d2}.highlight .k{font-weight:bold}.highlight .o{font-weight:bold}.highlight .cm{color:#998;font-style:italic}.highlight .cp{color:#999;font-weight:bold}.highlight .c1{color:#998;font-style:italic}.highlight .cs{color:#999;font-weight:bold;font-style:italic}.highlight .gd{color:#000;background-color:#fdd}.highlight .gd .x{color:#000;background-color:#faa}.highlight .ge{font-style:italic}.highlight .gr{color:#a00}.highlight .gh{color:#999}.highlight .gi{color:#000;background-color:#dfd}.highlight .gi .x{color:#000;background-color:#afa}.highlight .go{color:#888}.highlight .gp{color:#555}.highlight .gs{font-weight:bold}.highlight .gu{color:#aaa}.highlight .gt{color:#a00}.highlight .kc{font-weight:bold}.highlight .kd{font-weight:bold}.highlight .kp{font-weight:bold}.highlight .kr{font-weight:bold}.highlight .kt{color:#458;font-weight:bold}.highlight .m{color:#099}.highlight .s{color:#d14}.highlight .na{color:#008080}.highlight .nb{color:#0086B3}.highlight .nc{color:#458;font-weight:bold}.highlight .no{color:#008080}.highlight .ni{color:#800080}.highlight .ne{color:#900;font-weight:bold}.highlight .nf{color:#900;font-weight:bold}.highlight .nn{color:#555}.highlight .nt{color:#000080}.highlight .nv{color:#008080}.highlight .ow{font-weight:bold}.highlight .w{color:#bbb}.highlight .mf{color:#099}.highlight .mh{color:#099}.highlight .mi{color:#099}.highlight .mo{color:#099}.highlight .sb{color:#d14}.highlight .sc{color:#d14}.highlight .sd{color:#d14}.highlight .s2{color:#d14}.highlight .se{color:#d14}.highlight .sh{color:#d14}.highlight .si{color:#d14}.highlight .sx{color:#d14}.highlight .sr{color:#009926}.highlight .s1{color:#d14}.highlight .ss{color:#990073}.highlight .bp{color:#999}.highlight .vc{color:#008080}.highlight .vg{color:#008080}.highlight .vi{color:#008080}.highlight .il{color:#099}.container{max-width:1200px;padding-left:20px;padding-right:20px;margin:0 auto}.container-full{max-width:100%;padding-left:20px;padding-right:20px;margin:0 auto}.row{display:flex;flex-wrap:wrap;flex:0 1 auto;flex-direction:row;box-sizing:border-box;margin-left:-20px;margin-right:-20px}.col{padding-left:20px;padding-right:20px}[class^="col-"]{flex:auto}.col-0{width:0%}.col-1{width:8.3333333333%}.col-2{width:16.6666666667%}.col-3{width:25%}.col-4{width:33.3333333333%}.col-5{width:41.6666666667%}.col-6{width:50%}.col-7{width:58.3333333333%}.col-8{width:66.6666666667%}.col-9{width:75%}.col-10{width:83.3333333333%}.col-11{width:91.6666666667%}.col-12{width:100%}.push-0{margin-left:0%}.push-1{margin-left:8.3333333333%}.push-2{margin-left:16.6666666667%}.push-3{margin-left:25%}.push-4{margin-left:33.3333333333%}.push-5{margin-left:41.6666666667%}.push-6{margin-left:50%}.push-7{margin-left:58.3333333333%}.push-8{margin-left:66.6666666667%}.push-9{margin-left:75%}.push-10{margin-left:83.3333333333%}.push-11{margin-left:91.6666666667%}.push-12{margin-left:100%}.pull-0{margin-right:0%}.pull-1{margin-right:8.3333333333%}.pull-2{margin-right:16.6666666667%}.pull-3{margin-right:25%}.pull-4{margin-right:33.3333333333%}.pull-5{margin-right:41.6666666667%}.pull-6{margin-right:50%}.pull-7{margin-right:58.3333333333%}.pull-8{margin-right:66.6666666667%}.pull-9{margin-right:75%}.pull-10{margin-right:83.3333333333%}.pull-11{margin-right:91.6666666667%}.pull-12{margin-right:100%}@media (max-width: 992px){.col-d-0{width:0%}.col-d-1{width:8.3333333333%}.col-d-2{width:16.6666666667%}.col-d-3{width:25%}.col-d-4{width:33.3333333333%}.col-d-5{width:41.6666666667%}.col-d-6{width:50%}.col-d-7{width:58.3333333333%}.col-d-8{width:66.6666666667%}.col-d-9{width:75%}.col-d-10{width:83.3333333333%}.col-d-11{width:91.6666666667%}.col-d-12{width:100%}.push-d-0{margin-left:0%}.push-d-1{margin-left:8.3333333333%}.push-d-2{margin-left:16.6666666667%}.push-d-3{margin-left:25%}.push-d-4{margin-left:33.3333333333%}.push-d-5{margin-left:41.6666666667%}.push-d-6{margin-left:50%}.push-d-7{margin-left:58.3333333333%}.push-d-8{margin-left:66.6666666667%}.push-d-9{margin-left:75%}.push-d-10{margin-left:83.3333333333%}.push-d-11{margin-left:91.6666666667%}.push-d-12{margin-left:100%}.pull-d-0{margin-right:0%}.pull-d-1{margin-right:8.3333333333%}.pull-d-2{margin-right:16.6666666667%}.pull-d-3{margin-right:25%}.pull-d-4{margin-right:33.3333333333%}.pull-d-5{margin-right:41.6666666667%}.pull-d-6{margin-right:50%}.pull-d-7{margin-right:58.3333333333%}.pull-d-8{margin-right:66.6666666667%}.pull-d-9{margin-right:75%}.pull-d-10{margin-right:83.3333333333%}.pull-d-11{margin-right:91.6666666667%}.pull-d-12{margin-right:100%}}@media (max-width: 768px){.col-t-0{width:0%}.col-t-1{width:8.3333333333%}.col-t-2{width:16.6666666667%}.col-t-3{width:25%}.col-t-4{width:33.3333333333%}.col-t-5{width:41.6666666667%}.col-t-6{width:50%}.col-t-7{width:58.3333333333%}.col-t-8{width:66.6666666667%}.col-t-9{width:75%}.col-t-10{width:83.3333333333%}.col-t-11{width:91.6666666667%}.col-t-12{width:100%}.push-t-0{margin-left:0%}.push-t-1{margin-left:8.3333333333%}.push-t-2{margin-left:16.6666666667%}.push-t-3{margin-left:25%}.push-t-4{margin-left:33.3333333333%}.push-t-5{margin-left:41.6666666667%}.push-t-6{margin-left:50%}.push-t-7{margin-left:58.3333333333%}.push-t-8{margin-left:66.6666666667%}.push-t-9{margin-left:75%}.push-t-10{margin-left:83.3333333333%}.push-t-11{margin-left:91.6666666667%}.push-t-12{margin-left:100%}.pull-t-0{margin-right:0%}.pull-t-1{margin-right:8.3333333333%}.pull-t-2{margin-right:16.6666666667%}.pull-t-3{margin-right:25%}.pull-t-4{margin-right:33.3333333333%}.pull-t-5{margin-right:41.6666666667%}.pull-t-6{margin-right:50%}.pull-t-7{margin-right:58.3333333333%}.pull-t-8{margin-right:66.6666666667%}.pull-t-9{margin-right:75%}.pull-t-10{margin-right:83.3333333333%}.pull-t-11{margin-right:91.6666666667%}.pull-t-12{margin-right:100%}}@media (max-width: 576px){.col-m-0{width:0%}.col-m-1{width:8.3333333333%}.col-m-2{width:16.6666666667%}.col-m-3{width:25%}.col-m-4{width:33.3333333333%}.col-m-5{width:41.6666666667%}.col-m-6{width:50%}.col-m-7{width:58.3333333333%}.col-m-8{width:66.6666666667%}.col-m-9{width:75%}.col-m-10{width:83.3333333333%}.col-m-11{width:91.6666666667%}.col-m-12{width:100%}.push-m-0{margin-left:0%}.push-m-1{margin-left:8.3333333333%}.push-m-2{margin-left:16.6666666667%}.push-m-3{margin-left:25%}.push-m-4{margin-left:33.3333333333%}.push-m-5{margin-left:41.6666666667%}.push-m-6{margin-left:50%}.push-m-7{margin-left:58.3333333333%}.push-m-8{margin-left:66.6666666667%}.push-m-9{margin-left:75%}.push-m-10{margin-left:83.3333333333%}.push-m-11{margin-left:91.6666666667%}.push-m-12{margin-left:100%}.pull-m-0{margin-right:0%}.pull-m-1{margin-right:8.3333333333%}.pull-m-2{margin-right:16.6666666667%}.pull-m-3{margin-right:25%}.pull-m-4{margin-right:33.3333333333%}.pull-m-5{margin-right:41.6666666667%}.pull-m-6{margin-right:50%}.pull-m-7{margin-right:58.3333333333%}.pull-m-8{margin-right:66.6666666667%}.pull-m-9{margin-right:75%}.pull-m-10{margin-right:83.3333333333%}.pull-m-11{margin-right:91.6666666667%}.pull-m-12{margin-right:100%}}@media (max-width: 992px){.col-d-0{width:0%}.col-d-1{width:8.3333333333%}.col-d-2{width:16.6666666667%}.col-d-3{width:25%}.col-d-4{width:33.3333333333%}.col-d-5{width:41.6666666667%}.col-d-6{width:50%}.col-d-7{width:58.3333333333%}.col-d-8{width:66.6666666667%}.col-d-9{width:75%}.col-d-10{width:83.3333333333%}.col-d-11{width:91.6666666667%}.col-d-12{width:100%}.push-d-0{margin-left:0%}.push-d-1{margin-left:8.3333333333%}.push-d-2{margin-left:16.6666666667%}.push-d-3{margin-left:25%}.push-d-4{margin-left:33.3333333333%}.push-d-5{margin-left:41.6666666667%}.push-d-6{margin-left:50%}.push-d-7{margin-left:58.3333333333%}.push-d-8{margin-left:66.6666666667%}.push-d-9{margin-left:75%}.push-d-10{margin-left:83.3333333333%}.push-d-11{margin-left:91.6666666667%}.push-d-12{margin-left:100%}.pull-d-0{margin-right:0%}.pull-d-1{margin-right:8.3333333333%}.pull-d-2{margin-right:16.6666666667%}.pull-d-3{margin-right:25%}.pull-d-4{margin-right:33.3333333333%}.pull-d-5{margin-right:41.6666666667%}.pull-d-6{margin-right:50%}.pull-d-7{margin-right:58.3333333333%}.pull-d-8{margin-right:66.6666666667%}.pull-d-9{margin-right:75%}.pull-d-10{margin-right:83.3333333333%}.pull-d-11{margin-right:91.6666666667%}.pull-d-12{margin-right:100%}}@media (max-width: 768px){.col-t-0{width:0%}.col-t-1{width:8.3333333333%}.col-t-2{width:16.6666666667%}.col-t-3{width:25%}.col-t-4{width:33.3333333333%}.col-t-5{width:41.6666666667%}.col-t-6{width:50%}.col-t-7{width:58.3333333333%}.col-t-8{width:66.6666666667%}.col-t-9{width:75%}.col-t-10{width:83.3333333333%}.col-t-11{width:91.6666666667%}.col-t-12{width:100%}.push-t-0{margin-left:0%}.push-t-1{margin-left:8.3333333333%}.push-t-2{margin-left:16.6666666667%}.push-t-3{margin-left:25%}.push-t-4{margin-left:33.3333333333%}.push-t-5{margin-left:41.6666666667%}.push-t-6{margin-left:50%}.push-t-7{margin-left:58.3333333333%}.push-t-8{margin-left:66.6666666667%}.push-t-9{margin-left:75%}.push-t-10{margin-left:83.3333333333%}.push-t-11{margin-left:91.6666666667%}.push-t-12{margin-left:100%}.pull-t-0{margin-right:0%}.pull-t-1{margin-right:8.3333333333%}.pull-t-2{margin-right:16.6666666667%}.pull-t-3{margin-right:25%}.pull-t-4{margin-right:33.3333333333%}.pull-t-5{margin-right:41.6666666667%}.pull-t-6{margin-right:50%}.pull-t-7{margin-right:58.3333333333%}.pull-t-8{margin-right:66.6666666667%}.pull-t-9{margin-right:75%}.pull-t-10{margin-right:83.3333333333%}.pull-t-11{margin-right:91.6666666667%}.pull-t-12{margin-right:100%}}@media (max-width: 576px){.col-m-0{width:0%}.col-m-1{width:8.3333333333%}.col-m-2{width:16.6666666667%}.col-m-3{width:25%}.col-m-4{width:33.3333333333%}.col-m-5{width:41.6666666667%}.col-m-6{width:50%}.col-m-7{width:58.3333333333%}.col-m-8{width:66.6666666667%}.col-m-9{width:75%}.col-m-10{width:83.3333333333%}.col-m-11{width:91.6666666667%}.col-m-12{width:100%}.push-m-0{margin-left:0%}.push-m-1{margin-left:8.3333333333%}.push-m-2{margin-left:16.6666666667%}.push-m-3{margin-left:25%}.push-m-4{margin-left:33.3333333333%}.push-m-5{margin-left:41.6666666667%}.push-m-6{margin-left:50%}.push-m-7{margin-left:58.3333333333%}.push-m-8{margin-left:66.6666666667%}.push-m-9{margin-left:75%}.push-m-10{margin-left:83.3333333333%}.push-m-11{margin-left:91.6666666667%}.push-m-12{margin-left:100%}.pull-m-0{margin-right:0%}.pull-m-1{margin-right:8.3333333333%}.pull-m-2{margin-right:16.6666666667%}.pull-m-3{margin-right:25%}.pull-m-4{margin-right:33.3333333333%}.pull-m-5{margin-right:41.6666666667%}.pull-m-6{margin-right:50%}.pull-m-7{margin-right:58.3333333333%}.pull-m-8{margin-right:66.6666666667%}.pull-m-9{margin-right:75%}.pull-m-10{margin-right:83.3333333333%}.pull-m-11{margin-right:91.6666666667%}.pull-m-12{margin-right:100%}}@media (max-width: 992px){.col-d-0{width:0%}.col-d-1{width:8.3333333333%}.col-d-2{width:16.6666666667%}.col-d-3{width:25%}.col-d-4{width:33.3333333333%}.col-d-5{width:41.6666666667%}.col-d-6{width:50%}.col-d-7{width:58.3333333333%}.col-d-8{width:66.6666666667%}.col-d-9{width:75%}.col-d-10{width:83.3333333333%}.col-d-11{width:91.6666666667%}.col-d-12{width:100%}.push-d-0{margin-left:0%}.push-d-1{margin-left:8.3333333333%}.push-d-2{margin-left:16.6666666667%}.push-d-3{margin-left:25%}.push-d-4{margin-left:33.3333333333%}.push-d-5{margin-left:41.6666666667%}.push-d-6{margin-left:50%}.push-d-7{margin-left:58.3333333333%}.push-d-8{margin-left:66.6666666667%}.push-d-9{margin-left:75%}.push-d-10{margin-left:83.3333333333%}.push-d-11{margin-left:91.6666666667%}.push-d-12{margin-left:100%}.pull-d-0{margin-right:0%}.pull-d-1{margin-right:8.3333333333%}.pull-d-2{margin-right:16.6666666667%}.pull-d-3{margin-right:25%}.pull-d-4{margin-right:33.3333333333%}.pull-d-5{margin-right:41.6666666667%}.pull-d-6{margin-right:50%}.pull-d-7{margin-right:58.3333333333%}.pull-d-8{margin-right:66.6666666667%}.pull-d-9{margin-right:75%}.pull-d-10{margin-right:83.3333333333%}.pull-d-11{margin-right:91.6666666667%}.pull-d-12{margin-right:100%}}@media (max-width: 768px){.col-t-0{width:0%}.col-t-1{width:8.3333333333%}.col-t-2{width:16.6666666667%}.col-t-3{width:25%}.col-t-4{width:33.3333333333%}.col-t-5{width:41.6666666667%}.col-t-6{width:50%}.col-t-7{width:58.3333333333%}.col-t-8{width:66.6666666667%}.col-t-9{width:75%}.col-t-10{width:83.3333333333%}.col-t-11{width:91.6666666667%}.col-t-12{width:100%}.push-t-0{margin-left:0%}.push-t-1{margin-left:8.3333333333%}.push-t-2{margin-left:16.6666666667%}.push-t-3{margin-left:25%}.push-t-4{margin-left:33.3333333333%}.push-t-5{margin-left:41.6666666667%}.push-t-6{margin-left:50%}.push-t-7{margin-left:58.3333333333%}.push-t-8{margin-left:66.6666666667%}.push-t-9{margin-left:75%}.push-t-10{margin-left:83.3333333333%}.push-t-11{margin-left:91.6666666667%}.push-t-12{margin-left:100%}.pull-t-0{margin-right:0%}.pull-t-1{margin-right:8.3333333333%}.pull-t-2{margin-right:16.6666666667%}.pull-t-3{margin-right:25%}.pull-t-4{margin-right:33.3333333333%}.pull-t-5{margin-right:41.6666666667%}.pull-t-6{margin-right:50%}.pull-t-7{margin-right:58.3333333333%}.pull-t-8{margin-right:66.6666666667%}.pull-t-9{margin-right:75%}.pull-t-10{margin-right:83.3333333333%}.pull-t-11{margin-right:91.6666666667%}.pull-t-12{margin-right:100%}}@media (max-width: 576px){.col-m-0{width:0%}.col-m-1{width:8.3333333333%}.col-m-2{width:16.6666666667%}.col-m-3{width:25%}.col-m-4{width:33.3333333333%}.col-m-5{width:41.6666666667%}.col-m-6{width:50%}.col-m-7{width:58.3333333333%}.col-m-8{width:66.6666666667%}.col-m-9{width:75%}.col-m-10{width:83.3333333333%}.col-m-11{width:91.6666666667%}.col-m-12{width:100%}.push-m-0{margin-left:0%}.push-m-1{margin-left:8.3333333333%}.push-m-2{margin-left:16.6666666667%}.push-m-3{margin-left:25%}.push-m-4{margin-left:33.3333333333%}.push-m-5{margin-left:41.6666666667%}.push-m-6{margin-left:50%}.push-m-7{margin-left:58.3333333333%}.push-m-8{margin-left:66.6666666667%}.push-m-9{margin-left:75%}.push-m-10{margin-left:83.3333333333%}.push-m-11{margin-left:91.6666666667%}.push-m-12{margin-left:100%}.pull-m-0{margin-right:0%}.pull-m-1{margin-right:8.3333333333%}.pull-m-2{margin-right:16.6666666667%}.pull-m-3{margin-right:25%}.pull-m-4{margin-right:33.3333333333%}.pull-m-5{margin-right:41.6666666667%}.pull-m-6{margin-right:50%}.pull-m-7{margin-right:58.3333333333%}.pull-m-8{margin-right:66.6666666667%}.pull-m-9{margin-right:75%}.pull-m-10{margin-right:83.3333333333%}.pull-m-11{margin-right:91.6666666667%}.pull-m-12{margin-right:100%}}img[data-action="zoom"]{cursor:pointer;cursor:-webkit-zoom-in;cursor:-moz-zoom-in}.zoom-img,.zoom-img-wrap{position:relative;z-index:666;-webkit-transition:all 300ms;-o-transition:all 300ms;transition:all 300ms}img.zoom-img{cursor:pointer;cursor:-webkit-zoom-out;cursor:-moz-zoom-out}.zoom-overlay{z-index:420;background:#fff;position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;opacity:0;-webkit-transition:opacity 300ms;-o-transition:opacity 300ms;transition:opacity 300ms}.zoom-overlay-open .zoom-overlay{opacity:1}.zoom-overlay-open,.zoom-overlay-transitioning{cursor:default}*,*::after,*::before{box-sizing:border-box}body{font-family:"Roboto",Helvetica Neue,Helvetica,Arial,sans-serif;font-size:16px;line-height:26px;color:#393e46;background-color:#fff;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body input,body textarea{border:1px solid #e6eef0;outline:none}body input:focus:required:invalid,body textarea:focus:required:invalid{border-color:#e02f40}body input:required:valid,body textarea:required:valid{border-color:#34a74e}::placeholder{color:#666}*::selection{color:#fff;background-color:#393e46}h1,h2,h3,h4,h5,h6{font-family:"Roboto",Helvetica Neue,Helvetica,Arial,sans-serif;line-height:initial;letter-spacing:0.5px}h1{font-size:36px}h2{font-size:28px}h3{font-size:24px}h4{font-size:20px}h5{font-size:18px}h6{font-size:16px}blockquote{margin:30px -100px;font-size:28px;line-height:45px;letter-spacing:0.5px;font-style:normal;text-align:center}@media only screen and (max-width: 768px){blockquote{margin:30px 0;font-size:24px;line-height:38px}}pre{overflow:auto;padding:15px;margin-bottom:0;font-size:14px;white-space:pre-wrap;word-wrap:break-word;word-break:break-all}img,.zoom-img-wrap{max-width:100%;height:auto;vertical-align:middle}img+em,.zoom-img-wrap+em{text-align:center;display:block;font-style:normal;font-weight:normal;font-size:14px;color:#bbb}a{text-decoration:none;color:#f6b141;transition:all 0.35s}a:hover{color:#f49d10}a:active{color:#c87f09}hr{display:block;height:1px;margin:40px 0;border:0;background:#e6eef0}.top{position:fixed;bottom:40px;right:-100px;z-index:1;width:35px;height:35px;text-align:center;line-height:35px;background-color:#393e46;color:#fff;cursor:pointer;transition:all .25s ease}.top.is-active{right:40px}.top:hover{background-color:#000}@media only screen and (max-width: 768px){.top{bottom:25px}.top.is-active{right:30px}}.header{position:relative;height:100px}.header .header__overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:10;background-color:rgba(17,17,17,0.7);cursor:pointer;opacity:0;visibility:hidden;transition:all 0.5s ease}@media only screen and (max-width: 992px){.header .header__overlay.is-visible{opacity:1;visibility:visible}}.logo{position:absolute;top:50%;left:0;transform:translateY(-50%)}.logo .logo__link{font-size:30px;font-weight:700;letter-spacing:0.5px;color:#393e46;text-decoration:none}.logo .logo__link:hover{color:#000}.logo .logo__image{max-height:50px}.main-nav{position:absolute;top:50%;left:50%;transform:translate(-50%, -50%)}.main-nav .nav-icon__close{display:none;font-size:24px;text-align:right;cursor:pointer}.main-nav .nav-icon__close:hover{color:#000}.main-nav .nav__title{display:none}.main-nav .nav__list{white-space:nowrap}.main-nav .nav__list .nav__item{display:inline-block}.main-nav .nav__list .nav__item .nav__link{display:inline-block;padding:10px 30px;font-size:14px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#393e46}.main-nav .nav__list .nav__item .nav__link:hover{color:#000}@media only screen and (max-width: 992px){.main-nav{position:fixed;top:0;left:inherit;right:-300px;bottom:0;transform:none;z-index:100;width:300px;height:100vh;padding:40px 30px 30px;transition:right 0.5s cubic-bezier(0.7, 0.4, 0, 1);background:#fff}.main-nav.is-open{right:0}.main-nav .nav-icon__close{display:block}.main-nav .nav__title{display:block;padding-left:30px;padding-bottom:7px;margin-bottom:10px;color:#bbb;border-bottom:1px solid #e6eef0}.main-nav .nav__list .nav__item{display:block}}.nav-buttons{position:absolute;top:50%;right:0;transform:translateY(-50%);font-size:21px}.nav-buttons .nav__icon{color:#393e46;cursor:pointer}.nav-buttons .nav__icon:hover{color:#000}.nav-buttons .nav__icon-menu{display:none;margin-right:10px}.nav-buttons .nav__icon-menu:hover{color:#000}@media only screen and (max-width: 992px){.nav-buttons .nav__icon-menu{display:inline-block}}.hero{padding:80px 0;margin-bottom:80px;background:#f5f5f5}.hero .last-item{display:flex}.hero .hero__content{display:flex;flex-direction:column;justify-content:center;width:100%;padding:0 40px 0 0}.hero .hero__content .hero__title{font-size:38px;font-weight:normal}.hero .hero__content .hero__subtitle{font-size:18px;line-height:32px;letter-spacing:0.5px}.hero .hero__content .hero__social{display:flex}.hero .hero__content .hero__social-title{font-weight:700}.hero .hero__image img{box-shadow:0 1px 4px rgba(0,0,0,0.15)}@media only screen and (max-width: 992px){.hero .hero__content{padding:0}.hero .hero__content .hero__subtitle{font-size:16px;line-height:28px}}@media only screen and (max-width: 768px){.hero{margin-bottom:40px}.hero .last-item{order:1}.hero .hero__content .hero__title{margin-bottom:20px;font-size:27px}.hero .hero__image{margin-bottom:20px}.hero .hero__image img{box-shadow:none}}@media only screen and (max-width: 576px){.hero{padding:40px 0}}.search{position:fixed;top:0;left:0;right:0;bottom:0;z-index:-1;transform:scale(0.95);opacity:0;background:#fff;transition:all 250ms ease}.search.is-visible{transform:scale(1);z-index:100;opacity:1;transition:all 250ms ease}.search__box{width:50%;margin:0 auto;padding-top:100px}@media only screen and (max-width: 992px){.search__box{width:70%;padding-top:70px}}@media only screen and (max-width: 576px){.search__box{width:100%;padding-top:30px}}.search__group{margin-bottom:50px}.search__group .search__close{margin-bottom:30px;font-size:27px;text-align:right;cursor:pointer}.search__group .search__close:hover{color:#000}.search__group .search__text{width:100%;padding:20px 20px 20px 30px;letter-spacing:0.5px;border-radius:30px;border:1px solid #f8f8f8;color:#393e46;background:#f8f8f8}.search__group .search__text::placeholder{letter-spacing:0.5px;color:rgba(57,62,70,0.7)}.search-results-list{height:65vh;margin:0;padding:0 20px;list-style:decimal;overflow:auto;white-space:normal}.search-results-list .search-results__item{margin-bottom:10px;padding-left:10px;padding-bottom:10px;font-weight:700;border-bottom:1px solid #f5efef}.search-results-list .search-results__item:first-child{padding-top:20px;border-top:1px solid #f5efef}.search-results-list .search-results__link{font-size:18px;font-weight:700;letter-spacing:0.5px;color:#393e46}.search-results-list .search-results__link:hover{color:#000}.search-results-list .search-results__date{font-size:12px;color:#bbb}.search-results-list .no-results{list-style:none;padding:20px 0;font-size:18px;font-weight:700;letter-spacing:0.5px;border-top:1px solid #f5efef;border-bottom:1px solid #f5efef}.contact .contact__list li{margin-left:15px;display:inline-block}.contact .contact__list li a{font-size:18px;color:#bbb}.contact .contact__list li a:hover{color:#393e46}.pagination{margin:20px 0 40px;padding:40px 0;text-align:center}@media only screen and (max-width: 576px){.pagination{margin:0 0 20px}}.pagination__list{display:flex;justify-content:space-between;align-items:center}.pagination__list .next-link,.pagination__list .previous-link,.pagination__list .disabled{display:inline-block;width:140px;height:50px;line-height:50px;font-size:12px;letter-spacing:1px;text-transform:uppercase;transition:all .35s;box-shadow:0 1px 3px 0 rgba(0,0,0,0.15);background:#fff}.pagination__list .next-link,.pagination__list .previous-link{color:#393e46}.pagination__list .next-link:hover,.pagination__list .previous-link:hover{color:#000}.pagination__list .disabled{color:#bbb;cursor:not-allowed}.pagination__list .counter-box a,.pagination__list .counter-box span{padding:0 5px;font-size:15px;color:#393e46}.pagination__list .counter-box .active-link{font-weight:700}@media only screen and (max-width: 576px){.pagination__list{flex-direction:column}.pagination__list .next-link,.pagination__list .previous-link,.pagination__list .disabled{margin:10px 0}}.subscribe{width:430px;max-width:100%;margin:0 auto 80px;text-align:center}.subscribe .subscribe__title{margin-bottom:10px;font-size:37px;line-height:57px}.subscribe .subscribe__subtitle{margin-bottom:30px;font-size:17px;line-height:27px}.subscribe .subscribe-form .subscribe-group{margin-bottom:30px}.subscribe .subscribe-form .subscribe__email{width:100%;padding:17px;font-size:16px;text-align:center;outline:none;border:none;border-bottom:3px solid #e6eef0}.subscribe .subscribe-form .subscribe__email::placeholder{font-size:18px;color:#e6eef0}.subscribe .subscribe-form .subscribe__button{width:127px;height:57px;font-size:14px;font-weight:700;letter-spacing:0.5px;border-radius:30px;border:none;background:#e6eef0;cursor:pointer;transition:all .35s}.subscribe .subscribe-form .subscribe__button:hover{color:#fff;background:#393e46}@media only screen and (max-width: 576px){.subscribe{margin:0 auto 40px}.subscribe .subscribe__subtitle{font-size:16px;line-height:26px}}.instagram-box{position:relative;margin:0 0 80px}.instagram-box .istagram-contact{position:absolute;left:50%;top:50%;transform:translate(-50%, -50%);z-index:1;display:block;padding:8px 15px;font-size:14px;letter-spacing:0.5px;border-radius:3px;box-shadow:0 4px 4px 0 rgba(0,0,0,0.15);color:#393e46;background:#fff}.instagram-box .istagram-contact:hover{color:#000}.instagram-box .instagram .instagram-item{width:16.6%;display:inline-block;transition:all .35s}.instagram-box .instagram .instagram-item:hover{opacity:0.9}@media only screen and (max-width: 768px){.instagram-box .instagram .instagram-item{width:33.3%}}@media only screen and (max-width: 576px){.instagram-box{margin:0 0 40px}}.footer{position:relative;padding:80px 0 40px;text-align:center;border-top:1px solid #e6eef0;background:#f5f5f5}.footer .contact{margin-bottom:15px}.footer .copyright a{color:#393e46}.footer .copyright a:hover{color:#f6b141}@media only screen and (max-width: 576px){.footer{padding:40px 0 20px}}.lates-title{position:relative;margin-bottom:80px;font-size:14px;line-height:24px;letter-spacing:1px;text-transform:uppercase;font-weight:normal;text-align:center}.lates-title:after,.lates-title:before{content:"";display:block;position:absolute;top:50%;transform:translateY(-50%);height:1px;background:#e6eef0}.lates-title:after{width:calc(50% - 90px);left:0}.lates-title:before{width:calc(50% - 90px);right:0}@media only screen and (max-width: 768px){.lates-title{margin-bottom:40px}.lates-title:after,.lates-title:before{width:calc(50% - 70px)}}.page-title-box{padding:80px 0;border-top:1px solid #e6eef0}.page-title-box .page-title{font-size:57px;line-height:70px;margin:0}@media only screen and (max-width: 576px){.page-title-box{padding:40px 0}.page-title-box .page-title{font-size:47px;line-height:53px}}.page__head .page-image{background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#e6eef0}.page__head .page-image:after{content:"";display:table;width:100%;min-height:300px;padding-top:50%}.page{margin:80px auto}.page img{margin:30px 0}@media only screen and (max-width: 768px){.page{margin:40px auto}}.page-box{text-align:center}.page-box .back-arrow a{display:inline-block;margin-left:10px;color:#393e46;font-weight:700}.page-box .back-arrow a:hover{color:#000}.article{margin-bottom:40px}.article .article__wrapper{display:flex;align-items:center}.article .article__image{width:50%;display:block;background-position:center;background-size:cover;background-repeat:no-repeat;background-color:#e6eef0}.article .article__image:hover{opacity:0.9}.article .article__image:after{content:"";display:table;width:100%;padding-bottom:70%}.article .article__content{width:60%;padding:50px;margin-left:-10%;z-index:1;border-radius:3px;background:rgba(255,255,255,0.98);box-shadow:0 1px 4px rgba(0,0,0,0.15)}.article .article__content .article__tag{font-size:12px;letter-spacing:0.5px;font-weight:700;text-transform:uppercase}.article .article__content .article__title{margin-bottom:20px;font-size:30px}.article .article__content .article__title a{color:#393e46}.article .article__content .article__title a:hover{color:#000}.article .article__content .article__excerpt{margin-bottom:20px;font-size:16px;line-height:26px}.article .article__content .article__meta{font-size:12px;line-height:18px;text-transform:uppercase;color:#bbb}.article .article__content .article__footer{display:flex;align-items:center}.article .article__content .article__footer .read-more{margin-left:auto;padding-bottom:5px;font-size:12px;line-height:18px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid transparent;color:#bbb}.article .article__content .article__footer .read-more:hover{color:#393e46;border-color:#f6b141}.article .article-without-image{width:100%;margin-left:auto}@media only screen and (max-width: 768px){.article .article__wrapper{flex-direction:column}.article .article__image{width:100%}.article .article__content{width:90%;padding:20px;margin:-10% 0 0 0}.article .article-without-image{width:90%;margin:0}}@media only screen and (max-width: 576px){.article .article__content .article__title{font-size:27px}}.post-title-box{padding:80px 0;border-top:1px solid #e6eef0}.post-title-box .post-title{margin-bottom:10px;width:500px;max-width:100%;font-size:57px;line-height:70px}.post-title-box .post__date{font-weight:700}@media only screen and (max-width: 576px){.post-title-box{padding:40px 0}.post-title-box .post-title{margin:10px 0;font-size:47px;line-height:53px}}.post__info{display:flex;align-items:center}.post__info .post__author{margin-right:10px;font-weight:700}.post__info .post__author .author-name{color:#bbb;border-bottom:1px solid transparent}.post__info .post__author .author-name:hover{border-bottom:1px solid #bbb}.post__info .post__tags .post__tags-tag{position:relative;padding-left:15px;font-weight:700}.post__info .post__tags .post__tags-tag:before{content:"";position:absolute;top:50%;left:0;transform:translateY(-50%);width:5px;height:5px;border-radius:50%;background:#393e46}.post-image{background-size:cover;background-position:center;background-repeat:no-repeat;background-color:#e6eef0}.post-image:after{content:"";display:table;width:100%;min-height:300px;padding-top:50%}.post{margin:80px auto}.post.post-no-image{margin:0 auto 80px}@media only screen and (max-width: 576px){.post{margin:40px auto}.post.post-no-image{margin:0 auto 40px}}.post img{margin:30px 0}.post__content{margin-bottom:40px}.post__share{display:flex}.post__share .share__title{margin-right:10px;font-size:18px;font-weight:700;letter-spacing:0.5px}.post__share .share__list .share__item{display:inline-block;margin:0 10px}.post__share .share__list .share__item a{font-size:18px;color:#bbb}.post__share .share__list .share__item a:hover{color:#393e46}.post__navigation{display:flex;align-items:baseline;margin-bottom:80px;padding-bottom:80px;border-bottom:1px solid #e6eef0}.post__navigation .prev,.post__navigation .next{flex:1 0 50%}.post__navigation .prev:last-child,.post__navigation .next:last-child{padding-right:0}.post__navigation .prev .post__nav__image,.post__navigation .next .post__nav__image{display:block;margin-bottom:40px;background-position:center;background-size:cover;background-repeat:no-repeat;background-color:#e6eef0;transition:.35s ease-in-out}.post__navigation .prev .post__nav__image:hover,.post__navigation .next .post__nav__image:hover{opacity:0.9}.post__navigation .prev .post__nav__image:after,.post__navigation .next .post__nav__image:after{content:"";display:table;width:100%;padding-bottom:65%}.post__navigation .prev .post__nav__title,.post__navigation .next .post__nav__title{margin-bottom:20px;font-size:27px;line-height:37px;text-transform:uppercase;letter-spacing:2px;text-align:center}.post__navigation .prev .post__nav__title a,.post__navigation .next .post__nav__title a{display:inline-block;max-width:250px;padding:0 10px;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#393e46}.post__navigation .prev .post__nav__title a:hover,.post__navigation .next .post__nav__title a:hover{color:#000}.post__navigation .prev{padding-right:10px}.post__navigation .next{padding-left:10px}.post__navigation .prev__excerpt,.post__navigation .next__excerpt{width:100%;max-width:400px;margin:0 auto;text-align:center}@media only screen and (max-width: 768px){.post__navigation{flex-wrap:wrap}.post__navigation .prev,.post__navigation .next{flex:1 0 100%;padding:0}.post__navigation .next{margin-top:40px}}@media only screen and (max-width: 576px){.post__navigation{margin-bottom:40px;padding-bottom:40px}.post__navigation .prev .post__nav__image,.post__navigation .next .post__nav__image{margin-bottom:20px}}.comments{margin-bottom:80px}@media only screen and (max-width: 576px){.comments{margin-bottom:40px}}.arhive-head{padding:80px 0;margin-bottom:40px;background:#f5f5f5}.arhive-head .archive-title{text-align:center;font-weight:normal}.arhive-head .archive-title span{font-weight:700}@media only screen and (max-width: 576px){.arhive-head{margin-bottom:40px}}
+
+  </style>
+</head>
+
+
+<body>
+
+<!--  -->
+
+  <div class="container">
+  <div class="row">
+    <div class="col col-12">
+      <!-- begin header -->
+      <header class="header">
+
+        <div class="logo">
+          <a class="logo__link" href="/">
+          
+            陽光不鏽的博客
+          
+          </a>
+        </div>
+
+        <nav class="main-nav">
+
+          <div class="main-nav__box">
+            <div class="nav-icon__close">
+              <i class="ion ion-ios-close-circle-outline"></i>
+            </div>
+
+            <div class="nav__title">菜单</div>
+
+            <ul class="nav__list list-reset">
+              <li class="nav__item">
+                <a href="/" class="nav__link">首页</a>
+              </li>
+              
+                
+              
+                
+              
+              <li class="nav__item">
+                <a href="/about/" class="nav__link">关于</a>
+              </li>
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+                
+              
+            </ul>
+
+          </div>
+        </nav>
+
+        <div class="nav-buttons">
+          <i class="nav__icon nav__icon-menu ion ion-md-menu" aria-label="Menu Icon"></i>
+          <i class="nav__icon nav__icon-search ion ion-md-search" aria-label="Search Icon"></i>
+        </div>
+
+        <div class="header__overlay"></div>
+      </header>
+      <!-- end header -->
+    </div>
+  </div>
+</div>
+
+
+  <!-- begin content -->
+  <main class="content" aria-label="Content">
+    <div class="container">
+  <div class="post-title-box">
+    <div class="row">
+      <div class="col col-10 push-2 col-11 push-t-1 col-m-12 push-m-0">
+<!--        <span class="post__date">-->
+<!--          <time datetime="2021-12-07T00:00:00+08:00">Dec 07, 2021</time>-->
+<!--        </span>-->
+
+        <h8 class="post-title">ceph crush分布式算法</h8>
+
+        <div class="post__info">
+          <div class="post__author">
+            <span>Posted on <time datetime="2021-12-07T00:00:00+08:00">Dec 07, 2021 </time>by</span>
+            <a href="/about/" class="author-name">陽光不鏽</a>
+          </div>
+
+          
+          <div class="post__tags">
+            
+              <a href="/tag/存储" class="post__tags-tag">存储</a>
+            
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+<!--  预览中带图片，内容不带图片，屏蔽-->
+<!--  -->
+<!--    <div class="post__head">-->
+<!--      <div class="post-image" style="background-image: url(/images/2021120700.png)"></div>-->
+<!--    </div>-->
+<!--  -->
+
+  </div>
+
+
+  <div class="container">
+  <div class="row">
+    <!-- begin post -->
+    <article class="post  col col-8 col-t-10 col-m-12">
+
+      <div class="post__content">
+        <p>       百度百科描述分布式存储是一种数据存储技术，通过网络使用企业中的每台机器上的磁盘空间，并将这些分散的存储资源构成一个虚拟的存储设备，数据分散的存储在企业的各个角落。<br />
+       维基百科描述与集中式存储相反，分布式存储通常采用存储单元集群的形式，并具有在集群节点之间进行数据同步和协调的机制。分布式存储最初是由Google提出的，其目的是通过廉价服务器解决大规模，高并发情况下的Web访问问题。</p>
+
+<p><strong>目录</strong></p>
+<ul>
+  <li><a href="#0x00-概述">概述</a></li>
+  <li><a href="#0x01-crush算法">crush算法</a></li>
+  <li><a href="#0x02-磁盘管理">磁盘管理</a></li>
+  <li><a href="#0x03-穿透堆文件看数据">穿透堆文件看数据</a></li>
+  <li><a href="#0x04-结束语">结束语</a></li>
+  <li><a href="#0x05-参考文献">参考文献</a></li>
+</ul>
+
+<h2 id="0x00-概述">0x00 概述</h2>
+
+<p>       既然是分布式存储，数据分布将是系统重要的部分，一个好的分布式算法往往考虑以下几点因素：</p>
+<ul>
+  <li>故障隔离</li>
+  <li>分布与负载均衡</li>
+  <li>集群伸缩与数据迁移</li>
+  <li>支持大规模集群</li>
+</ul>
+
+<h3 id="0x01-crush算法">0x01 crush算法</h3>
+
+<p>       目前有两种实现方法，一种是基于集中式的元数据查找，另一种是通过一致性hash算法计算获得。这里介绍的crush算法属于一致性hash算法，其主要解决PG到OSD的映射，其函数类似的过程如下：</p>
+
+<p>CRUSH(X) -&gt; (OSDi, OSDj, OSDk) <br />
+入参：<br />
+X为要计算的pg_id<br />
+cluster map拓扑<br />
+PG rule策略</p>
+
+<p>输出：<br />
+得到一组可用的OSD列表。</p>
+
+<h3 id="0x03-数据结构">0x03 数据结构</h3>
+<p>1.crush_map<br />
+定义静态所有cluster map的bucket。</p>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="nc">crush_map</span> <span class="p">{</span>
+        <span class="cm">/*! An array of crush_bucket pointers of size __max_buckets__.
+         * An element of the array may be NULL if the bucket was removed with
+         * crush_remove_bucket(). The buckets must be added with crush_add_bucket().
+         * The bucket found at __buckets[i]__ must have a crush_bucket.id == -1-i.
+         */</span>
+	<span class="k">struct</span> <span class="nc">crush_bucket</span> <span class="o">**</span><span class="n">buckets</span><span class="p">;</span>
+        <span class="cm">/*! An array of crush_rule pointers of size __max_rules__.
+         * An element of the array may be NULL if the rule was removed (there is
+         * no API to do so but there may be one in the future). The rules must be added
+         * with crush_add_rule().
+         */</span>
+	<span class="k">struct</span> <span class="nc">crush_rule</span> <span class="o">**</span><span class="n">rules</span><span class="p">;</span>
+        <span class="n">__s32</span> <span class="n">max_buckets</span><span class="p">;</span> <span class="cm">/*!&lt; the size of __buckets__ */</span>
+	<span class="n">__u32</span> <span class="n">max_rules</span><span class="p">;</span> <span class="cm">/*!&lt; the size of __rules__ */</span>
+        <span class="cm">/*! The value of the highest item stored in the crush_map + 1
+         */</span>
+	<span class="n">__s32</span> <span class="n">max_devices</span><span class="p">;</span>
+
+	<span class="cm">/*! Backward compatibility tunable. It implements a bad solution
+         * and must always be set to 0 except for backward compatibility
+         * purposes
+         */</span>
+	<span class="n">__u32</span> <span class="n">choose_local_tries</span><span class="p">;</span>
+	<span class="cm">/*! Backward compatibility tunable. It implements a bad solution
+         * and must always be set to 0 except for backward compatibility
+         * purposes
+         */</span>
+	<span class="n">__u32</span> <span class="n">choose_local_fallback_tries</span><span class="p">;</span>
+	<span class="cm">/*! Tunable. The default value when the CHOOSE_TRIES or
+         * CHOOSELEAF_TRIES steps are omitted in a rule. See the
+         * documentation for crush_rule_set_step() for more
+         * information
+         */</span>
+	<span class="n">__u32</span> <span class="n">choose_total_tries</span><span class="p">;</span>
+	<span class="cm">/*! Backward compatibility tunable. It should always be set
+         *  to 1 except for backward compatibility. Implemented in 2012
+         *  it was generalized late 2013 and is mostly unused except
+         *  in one border case, reason why it must be set to 1.
+         *
+         *  Attempt chooseleaf inner descent once for firstn mode; on
+         *  reject retry outer descent.  Note that this does *not*
+         *  apply to a collision: in that case we will retry as we
+         *  used to.
+         */</span>
+	<span class="n">__u32</span> <span class="n">chooseleaf_descend_once</span><span class="p">;</span>
+	<span class="cm">/*! Backward compatibility tunable. It is a fix for bad
+         *  mappings implemented in 2014 at
+         *  https://github.com/ceph/ceph/pull/1185. It should always
+         *  be set to 1 except for backward compatibility.
+         *
+         *  If non-zero, feed r into chooseleaf, bit-shifted right by
+	 *  (r-1) bits.  a value of 1 is best for new clusters.  for
+	 *  legacy clusters that want to limit reshuffling, a value of
+	 *  3 or 4 will make the mappings line up a bit better with
+	 *  previous mappings.
+         */</span>
+	<span class="n">__u8</span> <span class="n">chooseleaf_vary_r</span><span class="p">;</span>
+
+	<span class="cm">/*! Backward compatibility tunable. It is an improvement that
+         *  avoids unnecessary mapping changes, implemented at
+         *  https://github.com/ceph/ceph/pull/6572 and explained in
+         *  this post: "chooseleaf may cause some unnecessary pg
+         *  migrations" in October 2015
+         *  https://www.mail-archive.com/ceph-devel@vger.kernel.org/msg26075.html
+         *  It should always be set to 1 except for backward compatibility.
+         */</span>
+	<span class="n">__u8</span> <span class="n">chooseleaf_stable</span><span class="p">;</span>
+
+        <span class="cm">/*! @cond INTERNAL */</span>
+	<span class="cm">/* This value is calculated after decode or construction by
+	   the builder. It is exposed here (rather than having a
+	   'build CRUSH working space' function) so that callers can
+	   reserve a static buffer, allocate space on the stack, or
+	   otherwise avoid calling into the heap allocator if they
+	   want to. The size of the working space depends on the map,
+	   while the size of the scratch vector passed to the mapper
+	   depends on the size of the desired result set.
+
+	   Nothing stops the caller from allocating both in one swell
+	   foop and passing in two points, though. */</span>
+	<span class="kt">size_t</span> <span class="n">working_size</span><span class="p">;</span>
+
+<span class="cp">#ifndef __KERNEL__
+</span>	<span class="cm">/*! @endcond */</span>
+	<span class="cm">/*! Backward compatibility tunable. It is a fix for the straw
+         *  scaler values for the straw algorithm which is deprecated
+         *  (straw2 replaces it) implemented at
+         *  https://github.com/ceph/ceph/pull/3057. It should always
+         *  be set to 1 except for backward compatibility.
+         *
+	 */</span>
+	<span class="n">__u8</span> <span class="n">straw_calc_version</span><span class="p">;</span>
+
+        <span class="cm">/*! @cond INTERNAL */</span>
+	<span class="cm">/*
+	 * allowed bucket algs is a bitmask, here the bit positions
+	 * are CRUSH_BUCKET_*.  note that these are *bits* and
+	 * CRUSH_BUCKET_* values are not, so we need to or together (1
+	 * &lt;&lt; CRUSH_BUCKET_WHATEVER).  The 0th bit is not used to
+	 * minimize confusion (bucket type values start at 1).
+	 */</span>
+	<span class="n">__u32</span> <span class="n">allowed_bucket_algs</span><span class="p">;</span>
+
+	<span class="n">__u32</span> <span class="o">*</span><span class="n">choose_tries</span><span class="p">;</span>
+<span class="cp">#endif
+</span>	<span class="cm">/*! @endcond */</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p>2.crush_bucket<br />
+保存bucket信息。</p>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="nc">crush_bucket</span> <span class="p">{</span>
+	<span class="n">__s32</span> <span class="n">id</span><span class="p">;</span>        <span class="cm">/*!&lt; bucket identifier, &lt; 0 and unique within a crush_map */</span>
+	<span class="n">__u16</span> <span class="n">type</span><span class="p">;</span>      <span class="cm">/*!&lt; &gt; 0 bucket type, defined by the caller */</span>
+	<span class="n">__u8</span> <span class="n">alg</span><span class="p">;</span>        <span class="cm">/*!&lt; the item selection ::crush_algorithm */</span>
+        <span class="cm">/*! @cond INTERNAL */</span>
+	<span class="n">__u8</span> <span class="n">hash</span><span class="p">;</span>       <span class="cm">/* which hash function to use, CRUSH_HASH_* */</span>
+	<span class="cm">/*! @endcond */</span>
+	<span class="n">__u32</span> <span class="n">weight</span><span class="p">;</span>    <span class="cm">/*!&lt; 16.16 fixed point cumulated children weight */</span>
+	<span class="n">__u32</span> <span class="n">size</span><span class="p">;</span>      <span class="cm">/*!&lt; size of the __items__ array */</span>
+        <span class="n">__s32</span> <span class="o">*</span><span class="n">items</span><span class="p">;</span>    <span class="cm">/*!&lt; array of children: &lt; 0 are buckets, &gt;= 0 items */</span>
+<span class="p">};</span>
+</code></pre></div></div>
+<p>3.crush_rule<br />
+定义所有crush_rule结构。</p>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="nc">crush_rule</span> <span class="p">{</span>
+	<span class="n">__u32</span> <span class="n">len</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="nc">crush_rule_mask</span> <span class="n">mask</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="nc">crush_rule_step</span> <span class="n">steps</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+<span class="p">};</span>
+</code></pre></div></div>
+<p>builder.c实现了构造cursh_map数据结构，crush算法核心实现在mapper.c中。</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cm">/**
+ * crush_do_rule - calculate a mapping with the given input and rule
+ * @map: the crush_map
+ * @ruleno: the rule id
+ * @x: hash input
+ * @result: pointer to result vector
+ * @result_max: maximum result size
+ * @weight: weight vector (for map leaves)
+ * @weight_max: size of weight vector
+ * @cwin: Pointer to at least map-&gt;working_size bytes of memory or NULL.
+ */</span>
+<span class="kt">int</span> <span class="n">crush_do_rule</span><span class="p">(</span><span class="k">const</span> <span class="k">struct</span> <span class="nc">crush_map</span> <span class="o">*</span><span class="n">map</span><span class="p">,</span>
+		  <span class="kt">int</span> <span class="n">ruleno</span><span class="p">,</span> <span class="kt">int</span> <span class="n">x</span><span class="p">,</span> <span class="kt">int</span> <span class="o">*</span><span class="n">result</span><span class="p">,</span> <span class="kt">int</span> <span class="n">result_max</span><span class="p">,</span>
+		  <span class="k">const</span> <span class="n">__u32</span> <span class="o">*</span><span class="n">weight</span><span class="p">,</span> <span class="kt">int</span> <span class="n">weight_max</span><span class="p">,</span>
+		  <span class="kt">void</span> <span class="o">*</span><span class="n">cwin</span><span class="p">,</span> <span class="k">const</span> <span class="k">struct</span> <span class="nc">crush_choose_arg</span> <span class="o">*</span><span class="n">choose_args</span><span class="p">)</span>
+</code></pre></div></div>
+<p>crush_do_rule完成crush算法选择过程，如果是深度优先则调用crush_choose_firstn，如果是广度优先则调用crush_choose_indep。</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">firstn</span><span class="p">)</span> <span class="p">{</span>
+					<span class="kt">int</span> <span class="n">recurse_tries</span><span class="p">;</span>
+					<span class="k">if</span> <span class="p">(</span><span class="n">choose_leaf_tries</span><span class="p">)</span>
+						<span class="n">recurse_tries</span> <span class="o">=</span>
+							<span class="n">choose_leaf_tries</span><span class="p">;</span>
+					<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">map</span><span class="o">-&gt;</span><span class="n">chooseleaf_descend_once</span><span class="p">)</span>
+						<span class="n">recurse_tries</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+					<span class="k">else</span>
+						<span class="n">recurse_tries</span> <span class="o">=</span> <span class="n">choose_tries</span><span class="p">;</span>
+					<span class="n">osize</span> <span class="o">+=</span> <span class="n">crush_choose_firstn</span><span class="p">(</span>
+						<span class="n">map</span><span class="p">,</span>
+						<span class="n">cw</span><span class="p">,</span>
+						<span class="n">map</span><span class="o">-&gt;</span><span class="n">buckets</span><span class="p">[</span><span class="n">bno</span><span class="p">],</span>
+						<span class="n">weight</span><span class="p">,</span> <span class="n">weight_max</span><span class="p">,</span>
+						<span class="n">x</span><span class="p">,</span> <span class="n">numrep</span><span class="p">,</span>
+						<span class="n">curstep</span><span class="o">-&gt;</span><span class="n">arg2</span><span class="p">,</span>
+						<span class="n">o</span><span class="o">+</span><span class="n">osize</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span>
+						<span class="n">result_max</span><span class="o">-</span><span class="n">osize</span><span class="p">,</span>
+						<span class="n">choose_tries</span><span class="p">,</span>
+						<span class="n">recurse_tries</span><span class="p">,</span>
+						<span class="n">choose_local_retries</span><span class="p">,</span>
+						<span class="n">choose_local_fallback_retries</span><span class="p">,</span>
+						<span class="n">recurse_to_leaf</span><span class="p">,</span>
+						<span class="n">vary_r</span><span class="p">,</span>
+						<span class="n">stable</span><span class="p">,</span>
+						<span class="n">c</span><span class="o">+</span><span class="n">osize</span><span class="p">,</span>
+						<span class="mi">0</span><span class="p">,</span>
+						<span class="n">choose_args</span><span class="p">);</span>
+				<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+					<span class="n">out_size</span> <span class="o">=</span> <span class="p">((</span><span class="n">numrep</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">result_max</span><span class="o">-</span><span class="n">osize</span><span class="p">))</span> <span class="o">?</span>
+						    <span class="n">numrep</span> <span class="o">:</span> <span class="p">(</span><span class="n">result_max</span><span class="o">-</span><span class="n">osize</span><span class="p">));</span>
+					<span class="n">crush_choose_indep</span><span class="p">(</span>
+						<span class="n">map</span><span class="p">,</span>
+						<span class="n">cw</span><span class="p">,</span>
+						<span class="n">map</span><span class="o">-&gt;</span><span class="n">buckets</span><span class="p">[</span><span class="n">bno</span><span class="p">],</span>
+						<span class="n">weight</span><span class="p">,</span> <span class="n">weight_max</span><span class="p">,</span>
+						<span class="n">x</span><span class="p">,</span> <span class="n">out_size</span><span class="p">,</span> <span class="n">numrep</span><span class="p">,</span>
+						<span class="n">curstep</span><span class="o">-&gt;</span><span class="n">arg2</span><span class="p">,</span>
+						<span class="n">o</span><span class="o">+</span><span class="n">osize</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span>
+						<span class="n">choose_tries</span><span class="p">,</span>
+						<span class="n">choose_leaf_tries</span> <span class="o">?</span>
+						   <span class="n">choose_leaf_tries</span> <span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+						<span class="n">recurse_to_leaf</span><span class="p">,</span>
+						<span class="n">c</span><span class="o">+</span><span class="n">osize</span><span class="p">,</span>
+						<span class="mi">0</span><span class="p">,</span>
+						<span class="n">choose_args</span><span class="p">);</span>
+					<span class="n">osize</span> <span class="o">+=</span> <span class="n">out_size</span><span class="p">;</span>
+				<span class="p">}</span>
+			<span class="err">}</span>
+</code></pre></div></div>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">static</span> <span class="kt">int</span> <span class="n">crush_bucket_choose</span><span class="p">(</span><span class="k">const</span> <span class="k">struct</span> <span class="nc">crush_bucket</span> <span class="o">*</span><span class="n">in</span><span class="p">,</span>
+			       <span class="k">struct</span> <span class="nc">crush_work_bucket</span> <span class="o">*</span><span class="n">work</span><span class="p">,</span>
+			       <span class="kt">int</span> <span class="n">x</span><span class="p">,</span> <span class="kt">int</span> <span class="n">r</span><span class="p">,</span>
+                               <span class="k">const</span> <span class="k">struct</span> <span class="nc">crush_choose_arg</span> <span class="o">*</span><span class="n">arg</span><span class="p">,</span>
+                               <span class="kt">int</span> <span class="n">position</span><span class="p">)</span>
+</code></pre></div></div>
+<p>crush_bucket_choose根据不同类型的bucket选择不同的算法实现，然后选择出item。</p>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code>	<span class="k">case</span> <span class="n">CRUSH_BUCKET_STRAW</span><span class="p">:</span>
+		<span class="k">return</span> <span class="nf">bucket_straw_choose</span><span class="p">(</span>
+			<span class="p">(</span><span class="k">const</span> <span class="k">struct</span> <span class="nc">crush_bucket_straw</span> <span class="o">*</span><span class="p">)</span><span class="n">in</span><span class="p">,</span>
+			<span class="n">x</span><span class="p">,</span> <span class="n">r</span><span class="p">);</span>
+</code></pre></div></div>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//x是pgid,r是副本数。</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">bucket_straw_choose</span><span class="p">(</span><span class="k">const</span> <span class="k">struct</span> <span class="nc">crush_bucket_straw</span> <span class="o">*</span><span class="n">bucket</span><span class="p">,</span>
+			       <span class="kt">int</span> <span class="n">x</span><span class="p">,</span> <span class="kt">int</span> <span class="n">r</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">__u32</span> <span class="n">i</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">high</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="n">__u64</span> <span class="n">high_draw</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="n">__u64</span> <span class="n">draw</span><span class="p">;</span>
+
+	<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">bucket</span><span class="o">-&gt;</span><span class="n">h</span><span class="p">.</span><span class="n">size</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">draw</span> <span class="o">=</span> <span class="n">crush_hash32_3</span><span class="p">(</span><span class="n">bucket</span><span class="o">-&gt;</span><span class="n">h</span><span class="p">.</span><span class="n">hash</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">bucket</span><span class="o">-&gt;</span><span class="n">h</span><span class="p">.</span><span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">r</span><span class="p">);</span><span class="c1">//对每个item计算hash。</span>
+		<span class="n">draw</span> <span class="o">&amp;=</span> <span class="mh">0xffff</span><span class="p">;</span><span class="c1">//获取低16位。</span>
+		<span class="n">draw</span> <span class="o">*=</span> <span class="n">bucket</span><span class="o">-&gt;</span><span class="n">straws</span><span class="p">[</span><span class="n">i</span><span class="p">];</span><span class="c1">//乘以权重修正值。</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">draw</span> <span class="o">&gt;</span> <span class="n">high_draw</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">high</span> <span class="o">=</span> <span class="n">i</span><span class="p">;</span>
+			<span class="n">high_draw</span> <span class="o">=</span> <span class="n">draw</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="n">bucket</span><span class="o">-&gt;</span><span class="n">h</span><span class="p">.</span><span class="n">items</span><span class="p">[</span><span class="n">high</span><span class="p">];</span><span class="c1">//获取最终draw值最大的为选中的item。</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<h3 id="0x04-结束语">0x04 结束语</h3>
+
+<p>通过分析，可以了解到crush算法是一种可分层确定性的伪随机选择算法，它是ceph分布式文件系统的亮点和创新。可应对大规模集群，采用概率基础的统计均衡，有效减少数据倾斜，当然它还在继续完善中。</p>
+
+<h3 id="0x05-参考文献">0x05 参考文献</h3>
+<p>[1] 常涛,ceph源码分析.北京：机械工业出版社,2016.<br />
+[2] ceph github <a href="https://github.com/ceph">https://github.com/ceph</a>.<br />
+[3] ceph <a href="https://www.ceph.com/en/">https://www.ceph.com/en/</a>.</p>
+
+
+      </div>
+<!--share文章操作，暂时被屏蔽-->
+<!--      <div class="post__share">-->
+<!--        <span class="share__title">Share this article:</span>-->
+<!--        <ul class="share__list list-reset">-->
+<!--          <li class="share__item">-->
+<!--            <a class="share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://localhost:4000/2021/12/07/ceph-crush%E5%88%86%E5%B8%83%E5%BC%8F%E7%AE%97%E6%B3%95/"-->
+<!--              onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;"-->
+<!--              title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>-->
+<!--          </li>-->
+
+<!--          <li class="share__item">-->
+<!--            <a class="share__twitter" href="https://twitter.com/intent/tweet?text=ceph%20crush%E5%88%86%E5%B8%83%E5%BC%8F%E7%AE%97%E6%B3%95&url=http://localhost:4000/2021/12/07/ceph-crush%E5%88%86%E5%B8%83%E5%BC%8F%E7%AE%97%E6%B3%95/"-->
+<!--              onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;"-->
+<!--              title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>-->
+<!--          </li>-->
+
+<!--          <li class="share__item">-->
+<!--            <a class="share__linkedin" href="https://www.linkedin.com/shareArticle?mini=true&url=http://localhost:4000/2021/12/07/ceph-crush%E5%88%86%E5%B8%83%E5%BC%8F%E7%AE%97%E6%B3%95/&title=ceph%20crush%E5%88%86%E5%B8%83%E5%BC%8F%E7%AE%97%E6%B3%95&summary=&source="-->
+<!--              onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on LinkedIn" rel="nofollow"><i class="ion ion-logo-linkedin"></i></a>-->
+<!--          </li>-->
+
+<!--          <li class="share__item">-->
+<!--            <a class="share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://localhost:4000/2021/12/07/ceph-crush%E5%88%86%E5%B8%83%E5%BC%8F%E7%AE%97%E6%B3%95/&amp;media=http://localhost:4000/images/2021120700.png&amp;description=ceph%20crush%E5%88%86%E5%B8%83%E5%BC%8F%E7%AE%97%E6%B3%95"-->
+<!--              onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest"-->
+<!--              rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>-->
+<!--          </li>-->
+<!--        </ul>-->
+<!--      </div>-->
+    </article>
+    <!-- end post -->
+    </div>
+  </div>
+
+  <div class="container">
+  <div class="post__navigation">
+    
+    <div class="prev">
+<!--      <a class="post__nav__image" href="/2021/11/18/%E4%B8%80%E7%A7%8D%E6%97%A0%E9%94%81%E9%98%9F%E5%88%97%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E6%B3%95/" style="background-image: url(/images/20211118.jpg)"></a>-->
+      <h2 class="post__nav__title">
+        <i class="ion ion-md-arrow-back"></i>
+        <a href="/2021/11/18/%E4%B8%80%E7%A7%8D%E6%97%A0%E9%94%81%E9%98%9F%E5%88%97%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E6%B3%95/">一种无锁队列的实现方法</a>
+      </h2>
+      <p class="prev__excerpt">
+        
+          现代开发语言都提供队列数据结构，如在C++中stl容器队列为queue,另外还有一些用户自定义衍生品实现，通过链表或者数组实现的队列，但他们大多数是非线程安全的，即使提供的线程安全的队列，由于使用了锁，在高性能领域...
+        
+      </p>
+    </div>
+    
+
+    
+    <div class="next">
+<!--      <a class="post__nav__image" href="/2021/12/07/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AD%98%E5%82%A8%E7%AE%A1%E7%90%86%E4%BB%8B%E7%BB%8D-PostgreSQL/" style="background-image: url(/images/2021120701.png)">-->
+      </a>
+      <h2 class="post__nav__title">
+        <a href="/2021/12/07/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AD%98%E5%82%A8%E7%AE%A1%E7%90%86%E4%BB%8B%E7%BB%8D-PostgreSQL/">数据库存储管理介绍（PostgreSQL）</a>
+        <i class="ion ion-md-arrow-forward"></i>
+      </h2>
+      <p class="next__excerpt">
+        
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;百度百科描述数据库是“按照数据结构来组织、存储和管理数据的仓库”。是一个长期存储在计算机内的、有组织的、可共享的、统一管理的大量数...
+        
+      </p>
+    </div>
+    
+  </div>
+
+  
+  </div>
+
+  </main>
+  <!-- end content -->
+
+  <div class="top ion ion-ios-arrow-up" title="Top"></div>
+
+  <!-- begin search -->
+<div class="search">
+  <div class="container">
+    <div class="row">
+      <div class="col col-12">
+        <div class="search__box">
+          <div class="search__group">
+            <div class="search__close">
+              <i class="ion ion-ios-close-circle-outline"></i>
+            </div>
+            <label for="js-search-input" class="screen-reader-text">Search for Blog</label>
+            <input type="text" id="js-search-input" class="search__text" autocomplete="off" placeholder="Type to search">
+          </div>
+          <ul id="js-results-container" class="search-results-list"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- end search -->
+
+  <!-- begin footer -->
+<footer class="footer">
+  <div class="container">
+
+<!--     -->
+
+<!--    -->
+<!--    -->
+<!--    -->
+
+    <div class="copyright">© 2021 <a >陽光不鏽</a>. Powered by Jekyll</a>.</div>
+</div>
+</footer>
+<!-- end footer -->
+
+
+  <script src="/js/vendors/jquery-3.3.1.min.js"></script>
+<script src="/js/vendors/simple-jekyll-search.min.js"></script>
+<script>
+  SimpleJekyllSearch({
+    searchInput: document.getElementById("js-search-input"),
+    resultsContainer: document.getElementById("js-results-container"),
+    json: "/search.json",
+    searchResultTemplate: '<li class="search-results__item"><a class="search-results__link" href="{url}">{title}</a><br> <span class="search-results__date">{date}</span></li>',
+    noResultsText: '<li class="no-results">No results found</li>'
+  });
+</script>
+<script src="/js/vendors/transition.js"></script>
+<script src="/js/vendors/zoom.min.js"></script>
+<script src="/js/vendors/instafeed.min.js"></script>
+<script src="/js/vendors/jquery.fitvids.js"></script>
+<script src="/js/common.js"></script>
+</body>
+
+</html>
